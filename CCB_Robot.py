@@ -1,4 +1,5 @@
 import os
+import argparse
 from time import sleep
 from timeit import timeit
 from decouple import config
@@ -11,10 +12,9 @@ from selenium.webdriver.common.action_chains import ActionChains
 
 
 class CCB_Robot:
-    def __init__(self, **kwargs):
+    def __init__(self):
         self.DOWNLOAD_PATH = config("DOWNLOAD_PATH")
         options = Options()
-        # options.add_argument("--headless")
         options.add_experimental_option(
             "prefs",
             {
@@ -24,10 +24,7 @@ class CCB_Robot:
                 "safebrowsing.enabled": False,
             },
         )
-        try:
-            self.driver = Chrome("chromedriver.exe", options=options)
-        except:
-            self.driver = Chrome(kwargs.get("drive"), options=options)
+        self.driver = Chrome("chromedriver.exe", options=options)
         self.wait = WebDriverWait(self.driver, 5)
         # LOAD XPATHS FROM SETTINGS.INI
         self.URL = config("URL")
@@ -69,29 +66,26 @@ class CCB_Robot:
             self.navigate_ccb_query_page()
 
     def search_n_download(self, date, ccb_number):
-        try:
-            inicial_date = self.wait.until(
-                    EC.presence_of_element_located((By.XPATH, self.DATA_INICIAL))
-                )
-            final_date = self.driver.find_element_by_xpath(self.DATA_FINAL)
-            ccb_field = self.driver.find_element_by_xpath(self.CCB_FIELD)
-            search_bt = self.driver.find_element_by_xpath(self.SEARCH_BT)
-            # CLEAR FIELDS
-            inicial_date.clear()
-            final_date.clear()
-            ccb_field.clear()
-            # FIll INFO AND GO
-            inicial_date.send_keys(date + " 00:00:00")
-            final_date.send_keys(date + " 23:59:59")
-            ccb_field.send_keys(ccb_number)
-            search_bt.click()
-            sleep(0.2)
-            pdf = self.wait.until(
-                EC.visibility_of_element_located((By.XPATH, self.DOWNLOAD_PDF_BT))
+        inicial_date = self.wait.until(
+                EC.presence_of_element_located((By.XPATH, self.DATA_INICIAL))
             )
-            pdf.click()
-        except:
-            self.search_n_download(date, ccb_number)
+        final_date = self.driver.find_element_by_xpath(self.DATA_FINAL)
+        ccb_field = self.driver.find_element_by_xpath(self.CCB_FIELD)
+        search_bt = self.driver.find_element_by_xpath(self.SEARCH_BT)
+        # CLEAR FIELDS
+        inicial_date.clear()
+        final_date.clear()
+        ccb_field.clear()
+        # FIll INFO AND GO
+        inicial_date.send_keys(date + " 00:00:00")
+        final_date.send_keys(date + " 23:59:59")
+        ccb_field.send_keys(ccb_number)
+        search_bt.click()
+        # sleep(0.2)
+        pdf = self.wait.until(
+            EC.visibility_of_element_located((By.XPATH, self.DOWNLOAD_PDF_BT))
+        )
+        pdf.click()
             
 
 if __name__ == "__main__":
@@ -99,7 +93,15 @@ if __name__ == "__main__":
     robot.login()
     robot.navigate_ccb_query_page()
     with open("download_list.csv") as csv:
-        for line in csv.readlines():
+        total = len(csv.readlines())
+        for counter, line in enumerate(csv.readlines(),1):
             ccb, date = line.split(";")
-            print(f"Getting {ccb}  - {date.strip()}")
-            robot.search_n_download(date, ccb)
+            print(f"Getting {ccb} - {counter} of {total}")
+            try:
+                robot.search_n_download(date, ccb)
+            except:
+                try:
+                    robot.search_n_download(date, ccb)
+                except:
+                    pass
+    robot.driver.quit()
